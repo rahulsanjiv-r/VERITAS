@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#10b981" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>VERITAS Field Audit</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --green: #10b981;
+      --green-dim: rgba(16,185,129,0.15);
+      --red: #ef4444;
+      --red-dim: rgba(239,68,68,0.15);
+      --yellow: #f59e0b;
+      --yellow-dim: rgba(245,158,11,0.15);
+      --radius: 10px;
+    }
+
+    html, body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.5;
+      min-height: 100dvh;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    #app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header svg { flex-shrink: 0; }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--green);
+      letter-spacing: 0.05em;
+    }
+    header .tagline {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Tabs ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+    }
+    nav button {
+      flex: 1;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 10px 4px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-height: 52px;
+    }
+    nav button .tab-icon { font-size: 18px; }
+    nav button.active {
+      color: var(--green);
+      border-bottom-color: var(--green);
+    }
+    nav button:hover { color: var(--text); }
+
+    /* ── Content panels ── */
+    .panel { display: none; flex: 1; padding: 16px; overflow-y: auto; }
+    .panel.active { display: block; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── Form elements ── */
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input[type="text"], input[type="url"], input[type="password"] {
+      width: 100%;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 16px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--green); }
+
+    button.btn {
+      width: 100%;
+      background: var(--green);
+      color: #0f172a;
+      border: none;
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      min-height: 48px;
+      transition: opacity 0.2s;
+    }
+    button.btn:hover { opacity: 0.88; }
+    button.btn:active { opacity: 0.75; }
+    button.btn.secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    button.btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* ── Spinner ── */
+    .spinner-wrap {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .spinner-wrap.visible { display: flex; }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .badge-green { background: var(--green-dim); color: var(--green); }
+    .badge-red   { background: var(--red-dim);   color: var(--red); }
+    .badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
+
+    /* ── Result blocks ── */
+    .result-block {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      margin-top: 14px;
+    }
+    .result-block .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .result-block .row:last-child { border-bottom: none; }
+    .result-block .row .label { color: var(--muted); font-size: 13px; flex-shrink: 0; }
+    .result-block .row .value { font-weight: 600; font-size: 14px; text-align: right; word-break: break-all; }
+    .mono { font-family: "SF Mono", "Fira Code", monospace; font-size: 12px; }
+
+    /* ── Capacity bar ── */
+    .capacity-bar-wrap {
+      background: var(--bg);
+      border-radius: 6px;
+      height: 10px;
+      overflow: hidden;
+      margin: 8px 0 4px;
+    }
+    .capacity-bar {
+      height: 100%;
+      border-radius: 6px;
+      background: var(--green);
+      transition: width 0.4s ease;
+    }
+    .capacity-bar.warn { background: var(--yellow); }
+    .capacity-bar.danger { background: var(--red); }
+
+    /* ── Error messages ── */
+    .error-msg {
+      color: var(--red);
+      font-size: 14px;
+      padding: 10px 12px;
+      background: var(--red-dim);
+      border-radius: 8px;
+      margin-top: 10px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    .success-msg {
+      color: var(--green);
+      font-size: 14px;
+      padding: 10px 12px;
+      background: var(--green-dim);
+      border-radius: 8px;
+      margin-top: 10px;
+      display: none;
+    }
+    .success-msg.visible { display: block; }
+
+    /* ── QR section ── */
+    #qr-preview-wrap {
+      margin: 12px 0;
+      text-align: center;
+    }
+    #qr-preview {
+      max-width: 240px;
+      max-height: 240px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      display: none;
+    }
+    .file-input-label {
+      display: block;
+      width: 100%;
+      background: var(--surface);
+      color: var(--text);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 15px;
+      min-height: 80px;
+      transition: border-color 0.2s;
+    }
+    .file-input-label:hover { border-color: var(--green); }
+    #qr-file-input { display: none; }
+
+    /* ── Settings ── */
+    .settings-note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: -8px;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header>
+    <svg width="28" height="28" viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg">
+      <rect width="192" height="192" rx="32" fill="#0f172a"/>
+      <path d="M96 20 L160 50 L160 100 C160 140 96 172 96 172 C96 172 32 140 32 100 L32 50 Z" fill="#10b981"/>
+      <polyline points="70,96 88,114 122,80" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <h1>VERITAS</h1>
+      <div class="tagline">Field Audit Companion</div>
+    </div>
+  </header>
+
+  <!-- Tab nav -->
+  <nav>
+    <button class="active" onclick="switchTab('cert')" id="tab-cert">
+      <span class="tab-icon">🛡️</span>Verify
+    </button>
+    <button onclick="switchTab('facility')" id="tab-facility">
+      <span class="tab-icon">🏭</span>Facility
+    </button>
+    <button onclick="switchTab('qr')" id="tab-qr">
+      <span class="tab-icon">📷</span>QR Scan
+    </button>
+    <button onclick="switchTab('settings')" id="tab-settings">
+      <span class="tab-icon">⚙️</span>Settings
+    </button>
+    <button onclick="switchTab('photo')" id="tab-photo">
+      <span class="tab-icon">📸</span>Photo
+    </button>
+  </nav>
+
+  <!-- ════ PANEL 1: Certificate Verify ════ -->
+  <div class="panel active" id="panel-cert">
+    <div class="card">
+      <h2>Certificate Verification</h2>
+      <label for="cert-id-input">Certificate ID</label>
+      <input type="text" id="cert-id-input" placeholder="Enter certificate ID…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button class="btn" onclick="verifyCert()">Verify Certificate</button>
+      <div class="spinner-wrap" id="cert-spinner">
+        <div class="spinner"></div>Verifying…
+      </div>
+      <div class="error-msg" id="cert-error"></div>
+    </div>
+
+    <div id="cert-result-wrap" style="display:none">
+      <div class="card">
+        <h2>Verification Result</h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <span class="badge" id="merkle-badge">…</span>
+          <span class="badge" id="chain-badge">…</span>
+        </div>
+        <div class="result-block" id="cert-details"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANEL 2: Facility Status ════ -->
+  <div class="panel" id="panel-facility">
+    <div class="card">
+      <h2>Facility Status</h2>
+      <label for="facility-id-input">Facility ID</label>
+      <input type="text" id="facility-id-input" placeholder="Enter facility ID…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+      <button class="btn" onclick="loadFacility()">Load Status</button>
+      <div class="spinner-wrap" id="facility-spinner">
+        <div class="spinner"></div>Loading…
+      </div>
+      <div class="error-msg" id="facility-error"></div>
+    </div>
+
+    <div id="facility-result-wrap" style="display:none">
+      <div class="card">
+        <h2>Capacity</h2>
+        <div id="facility-capacity-section"></div>
+      </div>
+      <div class="card">
+        <h2>Activity</h2>
+        <div class="result-block" id="facility-activity"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANEL 3: QR Scanner ════ -->
+  <div class="panel" id="panel-qr">
+    <div class="card">
+      <h2>Scan QR Code</h2>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
+        Capture a certificate QR code from the camera. The decoded ID will be pre-filled in the Verify tab.
+      </p>
+      <label class="file-input-label" for="qr-file-input">
+        📷 Tap to open camera / choose image
+      </label>
+      <input type="file" id="qr-file-input" accept="image/*" capture="environment" onchange="handleQRFile(this)" />
+      <div id="qr-preview-wrap">
+        <img id="qr-preview" alt="Captured image" />
+      </div>
+      <div class="spinner-wrap" id="qr-spinner">
+        <div class="spinner"></div>Decoding QR…
+      </div>
+      <div class="error-msg" id="qr-error"></div>
+      <div class="success-msg" id="qr-success"></div>
+    </div>
+
+    <div class="card" id="qr-decoded-wrap" style="display:none">
+      <h2>Decoded Result</h2>
+      <div class="result-block">
+        <div class="row">
+          <span class="label">Raw value</span>
+          <span class="value mono" id="qr-raw-value">—</span>
+        </div>
+        <div class="row">
+          <span class="label">Extracted ID</span>
+          <span class="value mono" id="qr-extracted-id">—</span>
+        </div>
+      </div>
+      <button class="btn" style="margin-top:12px" onclick="goVerifyQR()">Open in Verify Tab →</button>
+    </div>
+  </div>
+
+  <!-- ════ PANEL 4: Settings ════ -->
+  <div class="panel" id="panel-settings">
+    <div class="card">
+      <h2>API Connection</h2>
+      <label for="api-base-url">API Base URL</label>
+      <input type="url" id="api-base-url" placeholder="http://localhost:8000" />
+      <p class="settings-note">Default: http://localhost:8000 — change for remote server.</p>
+
+      <label for="bearer-token">Bearer Token</label>
+      <input type="password" id="bearer-token" placeholder="Paste JWT token here…" autocomplete="off" />
+      <p class="settings-note">Stored in sessionStorage only — cleared when you close the tab.</p>
+
+      <button class="btn" style="margin-bottom:10px" onclick="saveSettings()">Save Settings</button>
+      <button class="btn secondary" onclick="testConnection()">Test Connection</button>
+      <div class="spinner-wrap" id="settings-spinner">
+        <div class="spinner"></div>Testing…
+      </div>
+      <div class="error-msg" id="settings-error"></div>
+      <div class="success-msg" id="settings-success"></div>
+    </div>
+
+    <div class="card">
+      <h2>About</h2>
+      <div class="result-block">
+        <div class="row">
+          <span class="label">Project</span>
+          <span class="value">VERITAS</span>
+        </div>
+        <div class="row">
+          <span class="label">Version</span>
+          <span class="value">Phase 16 — Observability &amp; Mobile Photo</span>
+        </div>
+        <div class="row">
+          <span class="label">Contributors</span>
+          <span class="value">Open-source contributors</span>
+        </div>
+        <div class="row">
+          <span class="label">Purpose</span>
+          <span class="value">EPR certificate field verification</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ PANEL 5: Photo Upload ════ -->
+  <div class="panel" id="panel-photo">
+    <div class="card">
+      <h2>Photo Upload</h2>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:14px">
+        Capture or select a waste photo and upload it to an arrival record.
+        CV analysis runs server-side and results are shown below.
+      </p>
+
+      <label for="photo-arrival-id">Arrival ID</label>
+      <input type="text" id="photo-arrival-id" placeholder="Enter arrival ID…"
+             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+
+      <!-- Camera capture (mobile) / file picker (desktop) -->
+      <label class="file-input-label" for="photo-camera-input" id="photo-camera-label">
+        📸 Tap to open camera / choose photo
+      </label>
+      <input type="file" id="photo-camera-input" accept="image/*" capture="environment"
+             onchange="handlePhotoFile(this)" style="display:none" />
+
+      <!-- Preview -->
+      <div id="photo-preview-wrap" style="margin:12px 0;text-align:center;display:none">
+        <img id="photo-preview" alt="Selected photo"
+             style="max-width:100%;max-height:280px;border-radius:8px;border:1px solid var(--border)" />
+      </div>
+
+      <button class="btn" id="photo-upload-btn" onclick="uploadPhoto()" disabled>
+        Upload Photo
+      </button>
+
+      <div class="spinner-wrap" id="photo-spinner">
+        <div class="spinner"></div>Uploading…
+      </div>
+      <div class="error-msg" id="photo-error"></div>
+      <div class="success-msg" id="photo-success"></div>
+    </div>
+
+    <!-- CV result card -->
+    <div class="card" id="photo-cv-wrap" style="display:none">
+      <h2>CV Analysis Result</h2>
+      <div class="result-block" id="photo-cv-details"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- jsQR from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<script>
+'use strict';
+
+// ──────────────────────────────────────────────
+// Settings (sessionStorage only for tokens)
+// ──────────────────────────────────────────────
+function getApiBase() {
+  return sessionStorage.getItem('veritas_api_base') || 'http://localhost:8000';
+}
+function getToken() {
+  return sessionStorage.getItem('veritas_token') || '';
+}
+function getHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  const t = getToken();
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
+}
+
+function saveSettings() {
+  const url = document.getElementById('api-base-url').value.trim();
+  const token = document.getElementById('bearer-token').value.trim();
+  if (url) sessionStorage.setItem('veritas_api_base', url);
+  if (token) sessionStorage.setItem('veritas_token', token);
+  showSuccess('settings-success', 'Settings saved for this session.');
+  clearMsg('settings-error');
+}
+
+function loadSettingsUI() {
+  const base = sessionStorage.getItem('veritas_api_base') || '';
+  const token = sessionStorage.getItem('veritas_token') || '';
+  document.getElementById('api-base-url').value = base;
+  document.getElementById('bearer-token').value = token;
+}
+
+// ──────────────────────────────────────────────
+// Tab switching
+// ──────────────────────────────────────────────
+const TABS = ['cert', 'facility', 'qr', 'settings', 'photo'];
+function switchTab(id) {
+  TABS.forEach(t => {
+    document.getElementById('panel-' + t).classList.toggle('active', t === id);
+    document.getElementById('tab-' + t).classList.toggle('active', t === id);
+  });
+  if (id === 'settings') loadSettingsUI();
+}
+
+// ──────────────────────────────────────────────
+// UI helpers
+// ──────────────────────────────────────────────
+function showSpinner(id) { document.getElementById(id).classList.add('visible'); }
+function hideSpinner(id) { document.getElementById(id).classList.remove('visible'); }
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+function clearMsg(id) { document.getElementById(id).classList.remove('visible'); }
+function showSuccess(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+// ──────────────────────────────────────────────
+// Certificate Verification
+// ──────────────────────────────────────────────
+async function verifyCert() {
+  const certId = document.getElementById('cert-id-input').value.trim();
+  if (!certId) { showError('cert-error', 'Please enter a certificate ID.'); return; }
+
+  clearMsg('cert-error');
+  document.getElementById('cert-result-wrap').style.display = 'none';
+  showSpinner('cert-spinner');
+
+  try {
+    const url = getApiBase() + '/certificates/' + encodeURIComponent(certId) + '/verify';
+    const resp = await fetch(url, { headers: getHeaders() });
+
+    if (resp.status === 401 || resp.status === 403) {
+      showError('cert-error', 'Invalid token — check Settings.');
+      return;
+    }
+    if (resp.status === 404) {
+      showError('cert-error', 'Certificate not found.');
+      return;
+    }
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      showError('cert-error', 'Server error: ' + (body.detail || resp.status));
+      return;
+    }
+
+    const d = await resp.json();
+    renderCertResult(certId, d);
+  } catch (e) {
+    showError('cert-error', 'Server unreachable — check API URL in Settings.');
+  } finally {
+    hideSpinner('cert-spinner');
+  }
+}
+
+function renderCertResult(certId, d) {
+  // Merkle validity badge
+  const merkleBadge = document.getElementById('merkle-badge');
+  const merkleValid = d.valid !== false && d.merkle_valid !== false;
+  merkleBadge.textContent = merkleValid ? '✓ Merkle Valid' : '✗ Merkle Invalid';
+  merkleBadge.className = 'badge ' + (merkleValid ? 'badge-green' : 'badge-red');
+
+  // Chain validity badge
+  const chainBadge = document.getElementById('chain-badge');
+  const chainValid = d.chain_valid !== false;
+  chainBadge.textContent = chainValid ? '✓ Chain Valid' : '✗ Chain Broken';
+  chainBadge.className = 'badge ' + (chainValid ? 'badge-green' : 'badge-red');
+
+  // Detail rows
+  const cert = d.certificate || d;
+  const ledgerSnippet = (d.ledger_hash_hex || cert.ledger_hash_hex || '—');
+  const ledgerDisplay = ledgerSnippet.length > 16 ? ledgerSnippet.slice(0, 16) + '…' : ledgerSnippet;
+
+  document.getElementById('cert-details').innerHTML = row('Cert ID', certId.slice(0, 12) + '…', true)
+    + row('Facility', cert.facility_id || d.facility_id || '—')
+    + row('Quantity', cert.quantity_kg != null ? cert.quantity_kg.toLocaleString() + ' kg' : '—')
+    + row('Category', cert.waste_category || d.waste_category || '—')
+    + row('Minted At', (cert.minted_at || d.minted_at || '—').slice(0, 19))
+    + row('Ledger Hash', ledgerDisplay, true);
+
+  document.getElementById('cert-result-wrap').style.display = 'block';
+}
+
+function row(label, value, mono = false) {
+  return `<div class="row">
+    <span class="label">${label}</span>
+    <span class="value ${mono ? 'mono' : ''}">${escHtml(String(value))}</span>
+  </div>`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ──────────────────────────────────────────────
+// Facility Status
+// ──────────────────────────────────────────────
+async function loadFacility() {
+  const fid = document.getElementById('facility-id-input').value.trim();
+  if (!fid) { showError('facility-error', 'Please enter a facility ID.'); return; }
+
+  clearMsg('facility-error');
+  document.getElementById('facility-result-wrap').style.display = 'none';
+  showSpinner('facility-spinner');
+
+  try {
+    const url = getApiBase() + '/facilities/' + encodeURIComponent(fid) + '/status';
+    const resp = await fetch(url, { headers: getHeaders() });
+
+    if (resp.status === 401 || resp.status === 403) {
+      showError('facility-error', 'Invalid token — check Settings.');
+      return;
+    }
+    if (resp.status === 404) {
+      showError('facility-error', 'Facility not found.');
+      return;
+    }
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      showError('facility-error', 'Server error: ' + (body.detail || resp.status));
+      return;
+    }
+
+    const d = await resp.json();
+    renderFacilityResult(d);
+  } catch (e) {
+    showError('facility-error', 'Server unreachable — check API URL in Settings.');
+  } finally {
+    hideSpinner('facility-spinner');
+  }
+}
+
+function renderFacilityResult(d) {
+  const pct = d.capacity_utilisation_pct ?? 0;
+  const barClass = pct >= 90 ? 'danger' : pct >= 70 ? 'warn' : '';
+  const facility = d.facility || {};
+
+  document.getElementById('facility-capacity-section').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+      <span style="font-size:14px;color:var(--muted)">Utilisation</span>
+      <span style="font-size:14px;font-weight:700">${pct}%</span>
+    </div>
+    <div class="capacity-bar-wrap">
+      <div class="capacity-bar ${barClass}" style="width:${Math.min(pct,100)}%"></div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">
+      ${(d.total_certified_kg ?? 0).toLocaleString()} kg certified of ${(d.capacity_kg ?? 0).toLocaleString()} kg capacity
+    </div>
+  `;
+
+  document.getElementById('facility-activity').innerHTML =
+    row('Name', facility.name || d.name || '—')
+    + row('Category', facility.waste_category || d.waste_category || '—')
+    + row('Arrivals', d.arrival_count ?? '—')
+    + row('Certificates', d.certificate_count ?? '—');
+
+  document.getElementById('facility-result-wrap').style.display = 'block';
+}
+
+// ──────────────────────────────────────────────
+// QR Scanner
+// ──────────────────────────────────────────────
+let lastDecodedQRValue = '';
+
+function handleQRFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  clearMsg('qr-error');
+  clearMsg('qr-success');
+  document.getElementById('qr-decoded-wrap').style.display = 'none';
+  showSpinner('qr-spinner');
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const imgEl = document.getElementById('qr-preview');
+    imgEl.src = e.target.result;
+    imgEl.style.display = 'block';
+
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      hideSpinner('qr-spinner');
+
+      if (typeof jsQR === 'undefined') {
+        showError('qr-error', 'QR library failed to load — check internet connection.');
+        return;
+      }
+
+      const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
+      if (!code) {
+        showError('qr-error', 'No QR code detected in this image. Try a clearer photo.');
+        return;
+      }
+
+      const rawValue = code.data;
+      lastDecodedQRValue = rawValue;
+
+      // Try to extract a certificate ID from the QR value
+      // It may be a URL like /certificates/{id}/verify or just the raw ID
+      let extractedId = rawValue;
+      const urlMatch = rawValue.match(/\/certificates\/([^\/\?]+)/);
+      if (urlMatch) extractedId = urlMatch[1];
+
+      document.getElementById('qr-raw-value').textContent = rawValue.slice(0, 60) + (rawValue.length > 60 ? '…' : '');
+      document.getElementById('qr-extracted-id').textContent = extractedId;
+
+      // Pre-fill verify tab
+      document.getElementById('cert-id-input').value = extractedId;
+
+      document.getElementById('qr-decoded-wrap').style.display = 'block';
+      showSuccess('qr-success', 'QR decoded! Tap "Open in Verify Tab" to verify this certificate.');
+    };
+    img.onerror = function() {
+      hideSpinner('qr-spinner');
+      showError('qr-error', 'Could not read image file.');
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+
+  // Reset file input so same file can be re-chosen
+  input.value = '';
+}
+
+function goVerifyQR() {
+  switchTab('cert');
+}
+
+// ──────────────────────────────────────────────
+// Settings — Test Connection
+// ──────────────────────────────────────────────
+async function testConnection() {
+  clearMsg('settings-error');
+  clearMsg('settings-success');
+  showSpinner('settings-spinner');
+
+  // Save first so we use current inputs
+  const url = document.getElementById('api-base-url').value.trim() || getApiBase();
+  const token = document.getElementById('bearer-token').value.trim() || getToken();
+  const h = { 'Content-Type': 'application/json' };
+  if (token) h['Authorization'] = 'Bearer ' + token;
+
+  try {
+    const resp = await fetch(url + '/health', { headers: h });
+    if (resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      showSuccess('settings-success', '✓ Connected — server is up. ' + (body.status ? '(' + body.status + ')' : ''));
+    } else {
+      showError('settings-error', 'Server responded with HTTP ' + resp.status + '. Check URL and token.');
+    }
+  } catch (e) {
+    showError('settings-error', 'Server unreachable — check API Base URL.');
+  } finally {
+    hideSpinner('settings-spinner');
+  }
+}
+
+// ──────────────────────────────────────────────
+// Photo Upload
+// ──────────────────────────────────────────────
+let selectedPhotoFile = null;
+
+function handlePhotoFile(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  selectedPhotoFile = file;
+
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const img = document.getElementById('photo-preview');
+    img.src = e.target.result;
+    document.getElementById('photo-preview-wrap').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+
+  // Update label and enable upload button
+  document.getElementById('photo-camera-label').textContent = '✓ ' + file.name;
+  document.getElementById('photo-upload-btn').disabled = false;
+
+  // Clear previous results
+  clearMsg('photo-error');
+  clearMsg('photo-success');
+  document.getElementById('photo-cv-wrap').style.display = 'none';
+
+  // Reset file input so same file can be re-chosen
+  input.value = '';
+}
+
+async function uploadPhoto() {
+  const arrivalId = document.getElementById('photo-arrival-id').value.trim();
+  if (!arrivalId) { showError('photo-error', 'Please enter an Arrival ID.'); return; }
+  if (!selectedPhotoFile) { showError('photo-error', 'Please select or capture a photo first.'); return; }
+
+  clearMsg('photo-error');
+  clearMsg('photo-success');
+  document.getElementById('photo-cv-wrap').style.display = 'none';
+  document.getElementById('photo-upload-btn').disabled = true;
+  showSpinner('photo-spinner');
+
+  try {
+    const arrayBuf = await selectedPhotoFile.arrayBuffer();
+    const url = getApiBase() + '/arrivals/' + encodeURIComponent(arrivalId) + '/photo';
+
+    // Build headers — use Bearer token from settings; send raw bytes
+    const h = {};
+    const t = getToken();
+    if (t) h['Authorization'] = 'Bearer ' + t;
+    h['Content-Type'] = 'application/octet-stream';
+
+    const resp = await fetch(url, { method: 'POST', headers: h, body: arrayBuf });
+
+    if (resp.status === 401 || resp.status === 403) {
+      showError('photo-error', 'Auth error — check Settings token (need facility_operator or veritas_admin role).');
+      return;
+    }
+    if (resp.status === 404) {
+      showError('photo-error', 'Arrival not found — check the Arrival ID.');
+      return;
+    }
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      showError('photo-error', 'Upload failed: ' + (body.detail || resp.status));
+      return;
+    }
+
+    const d = await resp.json();
+    showSuccess('photo-success', '✓ Photo uploaded successfully (SHA-256: ' + (d.photo_sha256 || '').slice(0, 12) + '…)');
+    renderPhotoCV(d);
+  } catch (e) {
+    showError('photo-error', 'Server unreachable — check API URL in Settings.');
+  } finally {
+    hideSpinner('photo-spinner');
+    document.getElementById('photo-upload-btn').disabled = false;
+  }
+}
+
+function renderPhotoCV(d) {
+  const matched = d.cv_matched;
+  const confidence = d.cv_confidence != null ? (d.cv_confidence * 100).toFixed(1) + '%' : '—';
+  const category = d.cv_detected_category || '—';
+  const reason = d.cv_reason || '—';
+
+  const matchedBadge = matched
+    ? '<span class="badge badge-green">✓ CV Matched</span>'
+    : '<span class="badge badge-red">✗ CV Mismatch</span>';
+
+  document.getElementById('photo-cv-details').innerHTML =
+    '<div style="margin-bottom:10px">' + matchedBadge + '</div>'
+    + row('CV Matched', matched ? 'Yes' : 'No')
+    + row('Confidence', confidence)
+    + row('Detected Category', category)
+    + row('Reason', reason);
+
+  document.getElementById('photo-cv-wrap').style.display = 'block';
+}
+
+// ──────────────────────────────────────────────
+// Enter key shortcuts
+// ──────────────────────────────────────────────
+document.getElementById('cert-id-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') verifyCert();
+});
+document.getElementById('facility-id-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loadFacility();
+});
+document.getElementById('photo-arrival-id').addEventListener('keydown', e => {
+  if (e.key === 'Enter') uploadPhoto();
+});
+
+// ──────────────────────────────────────────────
+// Service Worker registration
+// ──────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/mobile/sw.js').catch(() => {
+    // SW registration failure is non-fatal — app still works online
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+name: VERITAS CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-typecheck:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: black check
+        run: black --check backend/ tests/
+      - name: ruff check
+        run: ruff check backend/ tests/
+      - name: mypy
+        run: mypy backend/
+
+  test:
+    name: Test Suite (including concurrency)
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run full test suite with coverage
+        run: pytest --cov=backend --cov-report=xml --cov-fail-under=80 -v
+      - name: Run concurrency test explicitly
+        run: pytest tests/test_database.py -k concurrency -v
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+        continue-on-error: true
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install bandit
+        run: pip install bandit
+      - name: Bandit security scan
+        run: bandit -r backend/ -ll

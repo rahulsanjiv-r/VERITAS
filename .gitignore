@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Secrets — NEVER commit these
+.env
+*.env
+*.key
+*.pem
+secrets.toml
+secrets.yaml
+
+# mypy
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# SQLite databases (dev only — don't commit data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Photos / arrivals media (object storage in production)
+arrivals/photos/
+
+# Firmware build artifacts
+firmware/**/*.bin
+firmware/**/*.elf
+firmware/**/.pio/
+
+# Terraform state
+ops/terraform/.terraform/
+ops/terraform/*.tfstate
+ops/terraform/*.tfstate.backup
+
+# Additional required exclusions
+*.pyc
+veritas.db
+photos/
+.agents/

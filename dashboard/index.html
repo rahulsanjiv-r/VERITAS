@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VERITAS — EPR Verification Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #e3b341;
+      --blue: #58a6ff;
+      --accent: #1f6feb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--blue);
+    }
+    header .tagline {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    #health-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin-left: auto;
+    }
+    #health-dot.up { background: var(--green); }
+    #health-dot.down { background: var(--red); }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
+    .card h2 {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+    .card.wide { grid-column: 1 / -1; }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { color: var(--muted); }
+    .stat-value { font-weight: 600; font-size: 16px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+    .badge-red   { background: rgba(248,81,73,0.15);  color: var(--red); }
+    .badge-yellow { background: rgba(227,179,65,0.15); color: var(--yellow); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left;
+      padding: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 8px; border-bottom: 1px solid #21262d; }
+    tr:last-child td { border-bottom: none; }
+    .mono { font-family: monospace; font-size: 11px; color: var(--muted); }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    button:hover { opacity: 0.85; }
+    input, select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 13px;
+      width: 100%;
+      margin-bottom: 8px;
+    }
+    #facility-id-input { margin-right: 8px; width: auto; }
+    .form-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    #error-msg { color: var(--red); font-size: 12px; margin-top: 8px; }
+    #loading { color: var(--muted); font-style: italic; font-size: 12px; }
+    .empty { color: var(--muted); padding: 16px 8px; font-style: italic; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚖ VERITAS</h1>
+  <div class="tagline">Verified EPR Recycling · Integrity · Tamper-proof Arrivals · Signatures</div>
+  <div id="health-dot" title="Backend status"></div>
+</header>
+
+<main>
+  <!-- Facility Lookup -->
+  <div class="card wide">
+    <h2>Facility Status</h2>
+    <div class="form-row">
+      <input id="facility-id-input" placeholder="Facility ID (paste from registration)" />
+      <button onclick="loadFacility()">Load</button>
+    </div>
+    <div id="facility-stats"></div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- Recent Arrivals -->
+  <div class="card">
+    <h2>Recent Arrivals</h2>
+    <div id="arrivals-table"><div class="empty">Enter a facility ID above.</div></div>
+  </div>
+
+  <!-- Recent Certificates -->
+  <div class="card">
+    <h2>Certificates Minted</h2>
+    <div id="certs-table"><div class="empty">Enter a facility ID above.</div></div>
+  </div>
+
+  <!-- Fraud Flags -->
+  <div class="card wide">
+    <h2>Fraud Flags</h2>
+    <div id="fraud-flags"><div class="empty">No fraud flags detected for current facility.</div></div>
+  </div>
+
+  <!-- API Quick Links -->
+  <div class="card wide">
+    <h2>API & Docs</h2>
+    <div class="stat-row">
+      <span class="stat-label">Interactive API docs (Swagger)</span>
+      <a href="/docs" target="_blank" style="color:var(--blue)">/docs</a>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">ReDoc</span>
+      <a href="/redoc" target="_blank" style="color:var(--blue)">/redoc</a>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Health check</span>
+      <a href="/health" target="_blank" style="color:var(--blue)">/health</a>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Demo (no hardware)</span>
+      <span class="mono">python scripts/simulate_pod.py</span>
+    </div>
+  </div>
+</main>
+
+<script>
+const BASE = '';  // same origin
+
+async function checkHealth() {
+  try {
+    const r = await fetch(BASE + '/health');
+    document.getElementById('health-dot').className = r.ok ? 'up' : 'down';
+  } catch {
+    document.getElementById('health-dot').className = 'down';
+  }
+}
+
+function setError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+}
+
+function clearError() {
+  document.getElementById('error-msg').textContent = '';
+}
+
+async function loadFacility() {
+  clearError();
+  const fid = document.getElementById('facility-id-input').value.trim();
+  if (!fid) { setError('Enter a facility ID first.'); return; }
+
+  try {
+    // Facility status
+    const sr = await fetch(`${BASE}/facilities/${fid}/status`);
+    if (!sr.ok) { setError(`Facility not found: ${fid}`); return; }
+    const s = await sr.json();
+
+    document.getElementById('facility-stats').innerHTML = `
+      <div class="stat-row">
+        <span class="stat-label">Name</span>
+        <span class="stat-value">${s.facility.name}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Waste Category</span>
+        <span class="stat-value">${s.facility.waste_category}</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Registered Capacity</span>
+        <span class="stat-value">${s.capacity_kg.toLocaleString()} kg</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Certified This Period</span>
+        <span class="stat-value">${s.total_certified_kg.toLocaleString()} kg</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Capacity Utilisation</span>
+        <span class="stat-value">${s.capacity_utilisation_pct}%</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Arrivals / Certificates</span>
+        <span class="stat-value">${s.arrival_count} / ${s.certificate_count}</span>
+      </div>
+    `;
+
+    // Arrivals
+    const ar = await fetch(`${BASE}/arrivals?facility_id=${fid}`);
+    if (ar.ok) {
+      const ad = await ar.json();
+      renderArrivals(ad.arrivals || []);
+      renderFraudFlags(ad.arrivals || []);
+    }
+
+    // Certificates
+    const cr = await fetch(`${BASE}/certificates?facility_id=${fid}`);
+    if (cr.ok) {
+      const cd = await cr.json();
+      renderCerts(cd.certificates || []);
+    }
+
+  } catch (e) {
+    setError(`Error: ${e.message}`);
+  }
+}
+
+function renderArrivals(arrivals) {
+  if (!arrivals.length) {
+    document.getElementById('arrivals-table').innerHTML = '<div class="empty">No arrivals yet.</div>';
+    return;
+  }
+  const rows = arrivals.slice(-20).reverse().map(a => {
+    const flags = Array.isArray(a.fraud_flags) ? a.fraud_flags : JSON.parse(a.fraud_flags || '[]');
+    const flagBadge = flags.length
+      ? `<span class="badge badge-yellow">⚠ ${flags.length} flag(s)</span>`
+      : `<span class="badge badge-green">Clean</span>`;
+    const used = a.used ? `<span class="badge badge-green">Minted</span>` : `<span class="badge">Unused</span>`;
+    return `<tr>
+      <td class="mono">${a.id.slice(0,8)}…</td>
+      <td>${a.weight_kg.toLocaleString()} kg</td>
+      <td>${flagBadge}</td>
+      <td>${used}</td>
+      <td class="mono">${a.submitted_at?.slice(0,19) || '—'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('arrivals-table').innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Weight</th><th>Fraud</th><th>Status</th><th>Submitted</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderFraudFlags(arrivals) {
+  const flagged = arrivals.filter(a => {
+    const flags = Array.isArray(a.fraud_flags) ? a.fraud_flags : JSON.parse(a.fraud_flags || '[]');
+    return flags.length > 0;
+  });
+  if (!flagged.length) {
+    document.getElementById('fraud-flags').innerHTML = '<div class="empty">No fraud flags detected.</div>';
+    return;
+  }
+  const rows = flagged.map(a => {
+    const flags = Array.isArray(a.fraud_flags) ? a.fraud_flags : JSON.parse(a.fraud_flags || '[]');
+    return `<tr>
+      <td class="mono">${a.id.slice(0,8)}…</td>
+      <td>${a.weight_kg.toLocaleString()} kg</td>
+      <td>${flags.map(f => `<span class="badge badge-red">${f}</span>`).join(' ')}</td>
+      <td class="mono">${a.submitted_at?.slice(0,19) || '—'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('fraud-flags').innerHTML = `
+    <table>
+      <thead><tr><th>Arrival ID</th><th>Weight</th><th>Flags</th><th>Time</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function renderCerts(certs) {
+  if (!certs.length) {
+    document.getElementById('certs-table').innerHTML = '<div class="empty">No certificates minted yet.</div>';
+    return;
+  }
+  const rows = certs.slice(-20).reverse().map(c => `<tr>
+    <td class="mono">${c.id.slice(0,8)}…</td>
+    <td>${c.quantity_kg.toLocaleString()} kg</td>
+    <td>${c.waste_category}</td>
+    <td class="mono">${c.ledger_hash_hex ? c.ledger_hash_hex.slice(0,16) + '…' : '—'}</td>
+    <td class="mono">${c.minted_at?.slice(0,19) || '—'}</td>
+  </tr>`).join('');
+  document.getElementById('certs-table').innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>Quantity</th><th>Category</th><th>Ledger Hash</th><th>Minted</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// Auto-refresh health every 10s
+checkHealth();
+setInterval(checkHealth, 10000);
+</script>
+</body>
+</html>
